@@ -256,6 +256,23 @@ input[type=checkbox]{accent-color:#534AB7;width:14px;height:14px;}
 </div>
 
 <script>
+/* ═══════════════ localStorage ═══════════════ */
+const LS_KEY='pmi_v2';
+function saveState(){
+  const actions=Array.from(document.querySelectorAll('#action-list > div')).map(row=>({
+    text:row.querySelector('label')?row.querySelector('label').textContent.trim():'',
+    checked:row.querySelector('input[type=checkbox]')?row.querySelector('input[type=checkbox]').checked:false
+  }));
+  try{localStorage.setItem(LS_KEY,JSON.stringify({tabs,activeTabId,tabCounter,people,animIdx,actions}));}catch(e){}
+}
+function loadSaved(){
+  try{return JSON.parse(localStorage.getItem(LS_KEY)||'null');}catch(e){return null;}
+}
+function resetSession(){
+  if(!confirm('Remettre à zéro toutes les données ?'))return;
+  localStorage.removeItem(LS_KEY);location.reload();
+}
+
 /* ═══════════════ DONNÉES ═══════════════ */
 const members=[
   {init:'VR',name:'Viviane RL.',color:'av1'},
@@ -340,6 +357,7 @@ function updateCharge(id,val){
     chip.setAttribute('draggable','true');
     addChipDragEvents(chip);
   }
+  saveState();
 }
 
 function setMood(id,mood){
@@ -348,11 +366,13 @@ function setMood(id,mood){
   const card=document.getElementById('pcard-'+id);
   card.querySelectorAll('.mood-pill').forEach((b,i)=>b.classList.toggle('on',i===mood));
   if(p.placed){removeFromGrid(id);placeOnGrid(id);}
+  saveState();
 }
 
 function togglePlace(id){
   const p=people.find(x=>x.id===id);
   if(p.placed){removeFromGrid(id);}else{placeOnGrid(id);}
+  saveState();
 }
 
 function placeOnGrid(id){
@@ -418,22 +438,18 @@ function initGridDragDrop(){
       if(!pid)return;
       const p=people.find(x=>x.id===pid);
       if(!p)return;
-      // retirer l'ancien chip
       const existing=document.querySelector('.chip-batt[data-pid="'+pid+'"]');
       if(existing)existing.remove();
-      // extraire row/col de l'id de la cellule (cell-row-col)
       const parts=cell.id.split('-');
-      const row=parseInt(parts[1]),col=parseInt(parts[2]);
-      // mettre à jour mood & charge selon la cellule cible
+      const row=parseInt(parts[1]);
       p.mood=row;
-      // on ne force pas la colonne charge via drag, on garde la charge actuelle mais on l'affiche dans la nouvelle cellule
       const chip=createChip(p);
       cell.appendChild(chip);
       p.placed=true;
       updatePlaceBtn(pid,true);
-      // mettre à jour les mood pills dans la carte
       const card=document.getElementById('pcard-'+pid);
       if(card)card.querySelectorAll('.mood-pill').forEach((b,i)=>b.classList.toggle('on',i===row));
+      saveState();
     });
   });
 }
@@ -533,6 +549,7 @@ function removeTag(tabId,btn){
     const area=document.getElementById('tags-'+tabId);
     t.tags=Array.from(area.querySelectorAll('.tag')).map(el=>el.childNodes[0].textContent.trim());
   }
+  saveState();
 }
 
 function showTabInput(tabId){
@@ -558,6 +575,7 @@ function bindTagInput(tabId){
       area.appendChild(span);
       t.tags.push(inp.value.trim());
       inp.value='';inp.classList.remove('visible');
+      saveState();
     }
     if(e.key==='Escape'){inp.value='';inp.classList.remove('visible');}
   };
@@ -568,6 +586,7 @@ function removeTab(id){
   tabs=tabs.filter(t=>t.id!==id);
   if(activeTabId===id)activeTabId=tabs[0].id;
   renderTabs();
+  saveState();
 }
 
 /* ── Modal nouvel onglet ── */
@@ -602,6 +621,7 @@ function confirmNewTab(){
   activeTabId=id;
   closeModal();
   renderTabs();
+  saveState();
 }
 document.getElementById('tab-add-btn').onclick=openModal;
 document.getElementById('tab-modal').onclick=function(e){if(e.target===this)closeModal();};
@@ -621,22 +641,26 @@ function renderTeam(){
   });
   document.getElementById('anim1').textContent=members[animIdx%members.length].init;
 }
-function rotateTeam(){animIdx=(animIdx+1)%members.length;renderTeam();}
+function rotateTeam(){animIdx=(animIdx+1)%members.length;renderTeam();saveState();}
 
 /* ═══════════════ POINT DU JOUR ═══════════════ */
 let actionCount=3;
+function makeActionRow(text,checked,id){
+  const row=document.createElement('div');
+  row.style.cssText='display:flex;align-items:center;gap:6px;font-size:13px;color:#1a1a18;';
+  row.innerHTML=`<input type="checkbox" id="${id}"${checked?' checked':''}><label for="${id}" style="flex:1;">${text}</label><button onclick="this.closest('div').remove();saveState()" style="background:none;border:none;cursor:pointer;font-size:12px;color:#888780;padding:0;opacity:0.5;transition:opacity 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5" title="Supprimer">✕</button>`;
+  row.querySelector('input').addEventListener('change',saveState);
+  return row;
+}
 function showActionInput(){
   const inp=document.getElementById('action-input');
   inp.classList.add('visible');inp.focus();
   inp.onkeydown=function(e){
     if(e.key==='Enter'&&inp.value.trim()){
       actionCount++;
-      const id='a'+actionCount;
-      const row=document.createElement('div');
-      row.style.cssText='display:flex;align-items:center;gap:6px;font-size:13px;color:#1a1a18;';
-      row.innerHTML=`<input type="checkbox" id="${id}"><label for="${id}" style="flex:1;">${inp.value.trim()}</label><button onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;font-size:12px;color:#888780;padding:0;opacity:0.5;transition:opacity 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5" title="Supprimer">✕</button>`;
-      document.getElementById('action-list').appendChild(row);
+      document.getElementById('action-list').appendChild(makeActionRow(inp.value.trim(),false,'a'+actionCount));
       inp.value='';inp.classList.remove('visible');
+      saveState();
     }
     if(e.key==='Escape'){inp.value='';inp.classList.remove('visible');}
   };
@@ -672,168 +696,34 @@ function tick(){
   if(seconds===60)document.getElementById('ring').style.stroke='#E24B4A';
 }
 
-/* ═══════════════ PERSISTANCE localStorage ═══════════════ */
-const LS_KEY='pmi_v1';
+/* ═══════════════ INIT ═══════════════ */
+document.getElementById('date-now').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
-function saveState(){
-  // actions (point du jour)
-  const actions=Array.from(document.querySelectorAll('#action-list > div')).map(row=>({
-    text:row.querySelector('label').textContent.trim(),
-    checked:row.querySelector('input[type=checkbox]').checked
-  }));
-  const state={
-    tabs:tabs.map(t=>({...t})),
-    activeTabId,
-    tabCounter,
-    people:people.map(p=>({...p})),
-    animIdx,
-    actions
-  };
-  try{localStorage.setItem(LS_KEY,JSON.stringify(state));}catch(e){}
-}
-
-function loadState(){
-  try{
-    const raw=localStorage.getItem(LS_KEY);
-    if(!raw)return false;
-    const s=JSON.parse(raw);
-    if(s.tabs&&s.tabs.length){
-      tabs=s.tabs;
-      activeTabId=s.activeTabId||tabs[0].id;
-      tabCounter=s.tabCounter||tabs.length;
-    }
-    if(s.people&&s.people.length){
-      s.people.forEach(sp=>{
-        const p=people.find(x=>x.id===sp.id);
-        if(p)Object.assign(p,sp);
-      });
-    }
-    if(typeof s.animIdx==='number')animIdx=s.animIdx;
-    if(s.actions){
-      const list=document.getElementById('action-list');
-      list.innerHTML='';
-      let cnt=0;
-      s.actions.forEach(a=>{
-        cnt++;
-        const id='ar'+cnt;
-        const row=document.createElement('div');
-        row.style.cssText='display:flex;align-items:center;gap:6px;font-size:13px;color:#1a1a18;';
-        row.innerHTML=`<input type="checkbox" id="${id}"${a.checked?' checked':''}><label for="${id}" style="flex:1;">${a.text}</label><button onclick="this.closest('div').remove();saveState()" style="background:none;border:none;cursor:pointer;font-size:12px;color:#888780;padding:0;opacity:0.5;transition:opacity 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5" title="Supprimer">✕</button>`;
-        row.querySelector('input').addEventListener('change',saveState);
-        list.appendChild(row);
-      });
-      actionCount=cnt;
-    }
-    return true;
-  }catch(e){return false;}
-}
-
-// Patch: auto-save sur chaque action utilisateur
-function patchSaveHooks(){
-  // onglets
-  const origRemoveTab=window.removeTab;
-  window.removeTab=function(id){removeTab(id);saveState();};
-  const origConfirmNewTab=window.confirmNewTab;
-  // rotation
-  const origRotate=window.rotateTeam;
-  window.rotateTeam=function(){rotateTeam_();saveState();};
-  // on observe les mutations sur la grille et les listes
-  const observer=new MutationObserver(()=>saveState());
-  observer.observe(document.getElementById('plot-zone'),{childList:true,subtree:true});
-  observer.observe(document.getElementById('tabs-content'),{childList:true,subtree:true});
-}
-
-// Sauvegardes déclenchées explicitement aux bons endroits
-// (on wrappe les fonctions qui modifient l'état)
-const _rotateTeam=rotateTeam;
-function rotateTeam(){_rotateTeam();saveState();}
-
-const _removeTab=removeTab;
-function removeTab(id){_removeTab(id);saveState();}
-
-const _confirmNewTab=confirmNewTab;
-function confirmNewTab(){
-  const name=document.getElementById('modal-tab-name').value.trim();
-  if(!name)return;
-  tabCounter++;
-  const id='tab-'+tabCounter;
-  tabs.push({id,label:name,icon:'ti ti-bookmark',colorIdx:selectedColor,tags:[]});
-  activeTabId=id;
-  closeModal();
-  renderTabs();
-  saveState();
-}
-
-const _placeOnGrid=placeOnGrid;
-function placeOnGrid(id){_placeOnGrid(id);saveState();}
-
-const _removeFromGrid=removeFromGrid;
-function removeFromGrid(id){_removeFromGrid(id);saveState();}
-
-const _updateCharge=updateCharge;
-function updateCharge(id,val){_updateCharge(id,val);saveState();}
-
-const _setMood=setMood;
-function setMood(id,mood){_setMood(id,mood);saveState();}
-
-// Patch showTabInput pour sauvegarder après ajout de tag
-const _bindTagInput=bindTagInput;
-function bindTagInput(tabId){
-  _bindTagInput(tabId);
-  const inp=document.getElementById('inp-'+tabId);
-  if(!inp)return;
-  const orig=inp.onkeydown;
-  inp.onkeydown=function(e){
-    if(orig)orig.call(this,e);
-    if(e.key==='Enter')setTimeout(saveState,50);
-  };
-}
-
-// Patch showActionInput pour sauvegarder après ajout d'action
-const _showActionInput=showActionInput;
-function showActionInput(){
-  const inp=document.getElementById('action-input');
-  inp.classList.add('visible');inp.focus();
-  inp.onkeydown=function(e){
-    if(e.key==='Enter'&&inp.value.trim()){
-      actionCount++;
-      const id='a'+actionCount;
-      const row=document.createElement('div');
-      row.style.cssText='display:flex;align-items:center;gap:6px;font-size:13px;color:#1a1a18;';
-      row.innerHTML=`<input type="checkbox" id="${id}"><label for="${id}" style="flex:1;">${inp.value.trim()}</label><button onclick="this.closest('div').remove();saveState()" style="background:none;border:none;cursor:pointer;font-size:12px;color:#888780;padding:0;opacity:0.5;transition:opacity 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5" title="Supprimer">✕</button>`;
-      row.querySelector('input').addEventListener('change',saveState);
-      document.getElementById('action-list').appendChild(row);
-      inp.value='';inp.classList.remove('visible');
-      saveState();
-    }
-    if(e.key==='Escape'){inp.value='';inp.classList.remove('visible');}
-  };
-}
-
-// Bouton reset session
-function resetSession(){
-  if(!confirm('Remettre à zéro toutes les données de la réunion ?'))return;
-  localStorage.removeItem(LS_KEY);
-  location.reload();
-}
-
-/* ── Bouton reset dans la date-bar ── */
+// Bouton reset
 document.querySelector('.date-bar').insertAdjacentHTML('afterbegin',
   '<button onclick="resetSession()" style="font-size:10px;padding:3px 10px;border-radius:20px;border:0.5px solid var(--border-medium);background:none;color:var(--text-tertiary);cursor:pointer;margin-right:8px;" title="Remettre à zéro">↺ Reset</button>'
 );
 
-/* ═══════════════ INIT ═══════════════ */
-document.getElementById('date-now').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-loadState();
+// Charger l'état sauvegardé
+const saved=loadSaved();
+if(saved){
+  if(saved.tabs&&saved.tabs.length){tabs=saved.tabs;activeTabId=saved.activeTabId||saved.tabs[0].id;tabCounter=saved.tabCounter||saved.tabs.length;}
+  if(saved.people&&saved.people.length){saved.people.forEach(sp=>{const p=people.find(x=>x.id===sp.id);if(p)Object.assign(p,sp);});}
+  if(typeof saved.animIdx==='number')animIdx=saved.animIdx;
+  if(saved.actions&&saved.actions.length){
+    const list=document.getElementById('action-list');
+    list.innerHTML='';
+    saved.actions.forEach((a,i)=>{actionCount=i+1;list.appendChild(makeActionRow(a.text,a.checked,'ar'+actionCount));});
+  }
+}
+
 renderPeopleCards();
 renderTeam();
 initTabs();
 initGridDragDrop();
-// re-place les batteries sur la grille après init
-people.filter(p=>p.placed).forEach(p=>{
-  p.placed=false;
-  placeOnGrid(p.id);
-});
+
+// Re-placer les batteries sauvegardées sur la grille
+people.filter(p=>p.placed).forEach(p=>{p.placed=false;placeOnGrid(p.id);});
 </script>
 </body>
 </html>
