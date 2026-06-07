@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Point Moyen Interne</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f4f4f2;min-height:100vh;padding:1rem;}
+:root{
+  --bg-primary:#ffffff;
+  --bg-secondary:#f4f4f2;
+  --text-primary:#1a1a18;
+  --text-secondary:#5f5e5a;
+  --text-tertiary:#888780;
+  --border-light:rgba(0,0,0,0.12);
+  --border-medium:rgba(0,0,0,0.22);
+  --radius-md:8px;
+  --radius-lg:12px;
+}
+.pmi{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:10px;}
+.top-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:var(--bg-primary);border:0.5px solid var(--border-light);border-radius:var(--radius-lg);}
+.meeting-title{font-size:16px;font-weight:600;color:var(--text-primary);display:flex;align-items:center;gap:8px;}
+.timer-ring{position:relative;width:56px;height:56px;flex-shrink:0;}
+.timer-ring svg{transform:rotate(-90deg);}
+.timer-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text-primary);}
+
+/* ── ONGLETS ── */
+.tabs-wrapper{background:var(--bg-primary);border:0.5px solid var(--border-light);border-radius:var(--radius-lg);overflow:hidden;}
+.tabs-bar{display:flex;align-items:center;gap:0;padding:8px 12px 0;border-bottom:1px solid var(--border-light);flex-wrap:wrap;gap:4px;}
+.tab-btn{display:flex;align-items:center;gap:5px;padding:6px 14px;border-radius:8px 8px 0 0;border:1px solid transparent;border-bottom:none;font-size:12px;font-weight:500;cursor:pointer;background:#f4f4f2;color:var(--text-secondary);transition:all 0.15s;user-select:none;white-space:nowrap;}
+.tab-btn.active{background:var(--bg-primary);border-color:var(--border-light);color:var(--text-primary);font-weight:600;position:relative;bottom:-1px;}
+.tab-btn:hover:not(.active){background:#ebebea;}
+.tab-btn .tab-icon{font-size:13px;}
+.tab-close{background:none;border:none;cursor:pointer;font-size:11px;line-height:1;padding:0 0 0 3px;opacity:0.4;transition:opacity 0.15s;color:inherit;display:inline-flex;align-items:center;}
+.tab-close:hover{opacity:1;}
+.tab-add{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;border:1px dashed var(--border-medium);background:none;cursor:pointer;color:var(--text-tertiary);font-size:16px;transition:all 0.15s;flex-shrink:0;margin-left:4px;}
+.tab-add:hover{border-color:#534AB7;color:#534AB7;}
+.tabs-content{padding:14px;}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+.tags-area{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0;}
+.tag{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:500;cursor:default;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;}
+.tag-del{background:none;border:none;cursor:pointer;font-size:12px;line-height:1;padding:0;opacity:0.5;transition:opacity 0.15s;display:inline-flex;align-items:center;}
+.tag-del:hover{opacity:1;}
+.tag-success{background:#EAF3DE;color:#3B6D11;border:0.5px solid #97C459;}
+.tag-client{background:#E6F1FB;color:#185FA5;border:0.5px solid #85B7EB;}
+.tag-warn{background:#FAEEDA;color:#854F0B;border:0.5px solid #FAC775;}
+.tag-comms{background:#EEEDFE;color:#534AB7;border:0.5px solid #AFA9EC;}
+.tag-custom{background:#F3E8FF;color:#6B21A8;border:0.5px solid #C084FC;}
+.add-btn{display:flex;align-items:center;gap:4px;background:none;border:0.5px dashed var(--border-medium);border-radius:20px;padding:4px 10px;font-size:11px;color:var(--text-tertiary);cursor:pointer;transition:all 0.15s;}
+.add-btn:hover{border-color:#534AB7;color:#534AB7;}
+.input-inline{font-size:11px;border:0.5px solid var(--border-light);border-radius:6px;padding:5px 8px;background:var(--bg-secondary);color:var(--text-primary);width:100%;margin-top:4px;display:none;outline:none;}
+.input-inline.visible{display:block;}
+
+/* ── MODAL création onglet ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity 0.2s;}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal-box{background:#fff;border-radius:14px;padding:22px;width:320px;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,0.18);}
+.modal-title{font-size:14px;font-weight:600;color:var(--text-primary);}
+.modal-input{border:1px solid var(--border-medium);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;width:100%;}
+.modal-input:focus{border-color:#534AB7;}
+.color-row{display:flex;gap:8px;flex-wrap:wrap;}
+.color-dot{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2.5px solid transparent;transition:border-color 0.15s;}
+.color-dot.sel{border-color:#1a1a18;}
+.modal-btns{display:flex;justify-content:flex-end;gap:8px;}
+.modal-btn{padding:7px 18px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:opacity 0.15s;}
+.modal-btn:hover{opacity:0.85;}
+.btn-cancel{background:#f4f4f2;color:var(--text-secondary);}
+.btn-confirm{background:#534AB7;color:#fff;}
+
+/* ── ÉNERGIE ── */
+.energy-section{background:var(--bg-primary);border:0.5px solid var(--border-light);border-radius:var(--radius-lg);padding:16px;}
+.energy-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:14px;}
+.plot-zone{display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr 1fr;gap:6px;padding:6px;background:var(--bg-secondary);border-radius:8px;min-height:210px;border:0.5px solid var(--border-light);}
+.plot-cell{border-radius:6px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px;min-height:60px;border:2px dashed var(--border-light);background:var(--bg-primary);transition:background 0.15s,border-color 0.15s;}
+.plot-cell.drag-over{background:#EEEDFE;border-color:#534AB7;border-style:solid;}
+.x-labels{display:flex;justify-content:space-between;padding:6px 6px 0;}
+.axis-label{font-size:10px;color:var(--text-tertiary);}
+
+/* ── PERSON CARDS ── */
+.person-card{background:#f9f9f7;border:1px solid rgba(0,0,0,0.09);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;}
+.person-card-name{font-size:12px;font-weight:600;color:#1a1a18;}
+.mood-btns-row{display:flex;gap:4px;}
+.mood-pill{width:26px;height:26px;border-radius:7px;border:1.5px solid transparent;background:#f0eeea;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+.mood-pill:hover{transform:scale(1.15);}
+.mood-pill.on{border-color:#534AB7;background:#EEEDFE;}
+.place-pill{width:100%;padding:5px 0;border-radius:8px;border:none;background:#534AB7;color:#fff;font-size:11px;font-weight:600;cursor:pointer;transition:opacity 0.15s;}
+.place-pill:hover{opacity:0.85;}
+.place-pill.placed{background:#639922;}
+
+/* ── CHIP BATTERIE (grille) ── */
+.chip-batt{display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 6px;border-radius:6px;cursor:grab;user-select:none;transition:opacity 0.15s,transform 0.1s;background:rgba(255,255,255,0.7);}
+.chip-batt:active{cursor:grabbing;}
+.chip-batt.dragging{opacity:0.4;transform:scale(0.9);}
+.chip-label{font-size:8px;font-weight:600;color:#5f5e5a;text-transform:uppercase;text-align:center;}
+.chip-pct{font-size:8px;color:#888780;}
+
+/* ── BOTTOM ── */
+.bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.rotation-card{background:var(--bg-primary);border:0.5px solid var(--border-light);border-radius:var(--radius-lg);padding:14px;display:flex;flex-direction:column;gap:8px;}
+.rot-title{font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.06em;}
+.next-btn{font-size:11px;padding:3px 10px;border-radius:20px;border:0.5px solid var(--border-medium);background:none;color:var(--text-secondary);cursor:pointer;transition:background 0.15s;}
+.next-btn:hover{background:var(--bg-secondary);}
+.member-row{display:flex;align-items:center;gap:8px;padding:4px 0;}
+.avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0;}
+.av1{background:#EEEDFE;color:#3C3489;}
+.av2{background:#E1F5EE;color:#085041;}
+.av-muted{background:#f4f4f2;color:#5f5e5a;}
+.badge-anim{font-size:10px;padding:2px 8px;border-radius:10px;background:#EEEDFE;color:#534AB7;font-weight:600;}
+
+/* ── DATE BAR ── */
+.date-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;background:var(--bg-secondary);border-radius:var(--radius-md);border:0.5px solid var(--border-light);}
+.date-text{font-size:12px;color:var(--text-secondary);}
+.start-btn{display:flex;align-items:center;gap:6px;padding:8px 20px;border-radius:20px;border:none;background:#534AB7;color:#EEEDFE;font-size:12px;font-weight:600;cursor:pointer;transition:opacity 0.15s;}
+.start-btn:hover{opacity:0.88;}
+.start-btn.running{background:#A32D2D;}
+.progress-bar-wrap{height:3px;background:var(--border-light);border-radius:2px;overflow:hidden;}
+.progress-bar-fill{height:100%;background:#534AB7;border-radius:2px;transition:width 1s linear;}
+input[type=range]{width:100%;accent-color:#534AB7;}
+input[type=checkbox]{accent-color:#534AB7;width:14px;height:14px;}
+</style>
+</head>
+<body>
+<div class="pmi">
+
+<!-- TOP BAR -->
+<div class="top-bar">
+  <div class="meeting-title">
+    <i class="ti ti-battery-charging" style="font-size:20px;color:#534AB7;"></i>
+    Point Moyen Interne
+    <span style="font-size:12px;color:#888780;font-weight:400;">· 10 min</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:12px;color:#888780;">Animé par</span>
+      <div class="avatar av1" id="anim1">VR</div>
+    </div>
+    <div class="timer-ring">
+      <svg width="56" height="56" viewBox="0 0 56 56">
+        <circle cx="28" cy="28" r="24" fill="none" stroke="#e0ddd5" stroke-width="3"/>
+        <circle id="ring" cx="28" cy="28" r="24" fill="none" stroke="#534AB7" stroke-width="3" stroke-dasharray="150.8" stroke-dashoffset="150.8" stroke-linecap="round"/>
+      </svg>
+      <div class="timer-text" id="timer-display">10:00</div>
+    </div>
+  </div>
+</div>
+
+<div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress" style="width:0%"></div></div>
+
+<!-- ÉNERGIE -->
+<div class="energy-section">
+  <div class="energy-title">
+    <div style="width:30px;height:30px;border-radius:8px;background:#FAEEDA;color:#854F0B;display:flex;align-items:center;justify-content:center;">⚡</div>
+    KI NOUVEL JODI YA
+    <span style="font-size:11px;color:#888780;font-weight:400;">— Règle ta jauge, clique Placer ou glisse vers le tableau</span>
+  </div>
+  <div id="people-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;"></div>
+  <div style="display:grid;grid-template-columns:26px 1fr;gap:4px;align-items:start;">
+    <div style="display:flex;flex-direction:column;justify-content:space-between;height:240px;padding:8px 0;align-items:center;">
+      <span style="font-size:18px;" title="Super moral">😄</span>
+      <span style="font-size:18px;" title="Ça va">🙂</span>
+      <span style="font-size:18px;" title="Moyen">😐</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;">
+      <div class="plot-zone" id="plot-zone" style="min-height:240px;">
+        <div class="plot-cell" id="cell-0-0"></div>
+        <div class="plot-cell" id="cell-0-1"></div>
+        <div class="plot-cell" id="cell-0-2"></div>
+        <div class="plot-cell" id="cell-1-0"></div>
+        <div class="plot-cell" id="cell-1-1"></div>
+        <div class="plot-cell" id="cell-1-2"></div>
+        <div class="plot-cell" id="cell-2-0"></div>
+        <div class="plot-cell" id="cell-2-1"></div>
+        <div class="plot-cell" id="cell-2-2"></div>
+      </div>
+      <div class="x-labels">
+        <span class="axis-label" style="color:#A32D2D;">😴 Fatigué(e)</span>
+        <span class="axis-label" style="font-weight:600;">Forme physique</span>
+        <span class="axis-label" style="color:#3B6D11;">💪 En forme</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ONGLETS SECTIONS -->
+<div class="tabs-wrapper">
+  <div class="tabs-bar" id="tabs-bar">
+    <!-- onglets injectés par JS -->
+    <button class="tab-add" id="tab-add-btn" title="Ajouter un onglet">+</button>
+  </div>
+  <div class="tabs-content" id="tabs-content">
+    <!-- panneaux injectés par JS -->
+  </div>
+</div>
+
+<!-- BOTTOM -->
+<div class="bottom-grid">
+  <div class="rotation-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <span class="rot-title"><i class="ti ti-rotate-clockwise" style="font-size:12px;vertical-align:-1px;"></i> Rotation animateurs</span>
+      <button class="next-btn" onclick="rotateTeam()">Semaine suivante →</button>
+    </div>
+    <div id="team-list"></div>
+  </div>
+  <div class="rotation-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <div class="rot-title"><i class="ti ti-list-check" style="font-size:12px;vertical-align:-1px;"></i> Point du jour</div>
+      <button class="next-btn" onclick="showActionInput()"><i class="ti ti-plus" style="font-size:11px;"></i> Ajouter</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;" id="action-list">
+      <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#1a1a18;">
+        <input type="checkbox" id="a1"><label for="a1" style="flex:1;">Validation planning semaine</label>
+        <button onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;font-size:12px;color:#888780;padding:0;opacity:0.5;transition:opacity 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5" title="Supprimer">✕</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#1a1a18;">
+        <input type="checkbox" id="a2"><label for="a2" style="flex:1;">Suivi client Durand</label>
+        <button onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;font-size:12px;color:#888780;padding:0;opacity:0.5;transition:opacity 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5" title="Supprimer">✕</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#1a1a18;">
+        <input type="checkbox" id="a3"><label for="a3" style="flex:1;">Brief qualité après réunion</label>
+        <button onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;font-size:12px;color:#888780;padding:0;opacity:0.5;transition:opacity 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5" title="Supprimer">✕</button>
+      </div>
+    </div>
+    <input class="input-inline" id="action-input" placeholder="Nouveau point… (Entrée pour valider)" style="margin-top:6px;" />
+  </div>
+</div>
+
+<!-- DATE BAR -->
+<div class="date-bar">
+  <span class="date-text" id="date-now"></span>
+  <span style="font-size:10px;color:#b4b2a9;font-style:italic;letter-spacing:0.03em;">Design by JND and INSPI &amp; Co</span>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span style="font-size:11px;color:#888780;" id="session-status">Réunion non démarrée</span>
+    <button class="start-btn" id="start-btn" onclick="toggleTimer()">
+      <i class="ti ti-player-play" id="start-icon"></i> Démarrer
+    </button>
+  </div>
+</div>
+
+</div>
+
+<!-- MODAL NOUVEL ONGLET -->
+<div class="modal-overlay" id="tab-modal">
+  <div class="modal-box">
+    <div class="modal-title">Nouvel onglet</div>
+    <input class="modal-input" id="modal-tab-name" placeholder="Nom de l'onglet…" maxlength="30" />
+    <div style="font-size:11px;color:var(--text-tertiary);">Couleur</div>
+    <div class="color-row" id="color-row"></div>
+    <div class="modal-btns">
+      <button class="modal-btn btn-cancel" onclick="closeModal()">Annuler</button>
+      <button class="modal-btn btn-confirm" onclick="confirmNewTab()">Créer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════ DONNÉES ═══════════════ */
+const members=[
+  {init:'VR',name:'Viviane RL.',color:'av1'},
+  {init:'JA',name:'José A.',color:'av2'},
+  {init:'JL',name:'Jean-Luc V.',color:'av-muted'},
+  {init:'JN',name:'Jean N.',color:'av-muted'},
+  {init:'CH',name:'Christophe',color:'av-muted'},
+  {init:'INV',name:'Invité',color:'av-muted'},
+];
+const people=[
+  {id:'VR',name:'Viviane',charge:70,mood:1,placed:false},
+  {id:'JA',name:'José',charge:60,mood:1,placed:false},
+  {id:'JL',name:'Jean-Luc',charge:80,mood:1,placed:false},
+  {id:'JN',name:'Jean',charge:50,mood:1,placed:false},
+  {id:'CH',name:'Christophe',charge:65,mood:1,placed:false},
+  {id:'INV',name:'Invité',charge:70,mood:1,placed:false},
+];
+let animIdx=0,timerInterval=null,seconds=600,running=false;
+
+/* ═══════════════ BATTERIES ═══════════════ */
+function battColor(c){return c>65?'#639922':c>35?'#BA7517':'#E24B4A';}
+
+function battSVG(charge,color,w,h){
+  w=w||52;h=h||22;
+  const fill=Math.max(0,Math.round((w-10)*charge/100));
+  const tipH=Math.round(h*0.4),tipY=Math.round((h-tipH)/2);
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+    <rect x="1" y="1" width="${w-8}" height="${h-2}" rx="3.5" fill="none" stroke="#3a3a38" stroke-width="1.6"/>
+    <rect x="${w-7}" y="${tipY}" width="6" height="${tipH}" rx="1.5" fill="#3a3a38"/>
+    <rect x="3" y="3" width="${fill}" height="${h-6}" rx="2" fill="${color}"/>
+  </svg>`;
+}
+
+function chargeToCol(c){return c>65?2:c>35?1:0;}
+
+/* ═══════════════ CARTES PERSONNES ═══════════════ */
+function renderPeopleCards(){
+  const container=document.getElementById('people-cards');
+  container.innerHTML='';
+  people.forEach(p=>{
+    const col=battColor(p.charge);
+    const card=document.createElement('div');
+    card.className='person-card';
+    card.id='pcard-'+p.id;
+    card.innerHTML=`
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span class="person-card-name">${p.name}</span>
+        <div id="bsvg-${p.id}">${battSVG(p.charge,col)}</div>
+      </div>
+      <input type="range" min="0" max="100" step="5" value="${p.charge}"
+        style="width:100%;accent-color:#534AB7;cursor:pointer;"
+        oninput="updateCharge('${p.id}',this.value)"
+        aria-label="Forme ${p.name}"/>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div class="mood-btns-row">
+          <button class="mood-pill${p.mood===0?' on':''}" onclick="setMood('${p.id}',0)" title="Super">😄</button>
+          <button class="mood-pill${p.mood===1?' on':''}" onclick="setMood('${p.id}',1)" title="Ça va">🙂</button>
+          <button class="mood-pill${p.mood===2?' on':''}" onclick="setMood('${p.id}',2)" title="Moyen">😐</button>
+        </div>
+        <span id="pct-${p.id}" style="font-size:10px;color:#888780;">${p.charge}%</span>
+      </div>
+      <button class="place-pill${p.placed?' placed':''}" id="pbtn-${p.id}" onclick="togglePlace('${p.id}')">
+        ${p.placed?'✓ Placé — retirer':'📌 Placer sur le tableau'}
+      </button>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function updateCharge(id,val){
+  val=parseInt(val);
+  const p=people.find(x=>x.id===id);
+  p.charge=val;
+  const col=battColor(val);
+  const bsvg=document.getElementById('bsvg-'+id);
+  if(bsvg)bsvg.innerHTML=battSVG(val,col);
+  const pct=document.getElementById('pct-'+id);
+  if(pct)pct.textContent=val+'%';
+  const chip=document.querySelector('.chip-batt[data-pid="'+id+'"]');
+  if(chip){
+    chip.innerHTML=battSVG(val,col,38,16)+'<div class="chip-label">'+p.name+'</div><div class="chip-pct">'+val+'%</div>';
+    chip.setAttribute('draggable','true');
+    addChipDragEvents(chip);
+  }
+}
+
+function setMood(id,mood){
+  const p=people.find(x=>x.id===id);
+  p.mood=mood;
+  const card=document.getElementById('pcard-'+id);
+  card.querySelectorAll('.mood-pill').forEach((b,i)=>b.classList.toggle('on',i===mood));
+  if(p.placed){removeFromGrid(id);placeOnGrid(id);}
+}
+
+function togglePlace(id){
+  const p=people.find(x=>x.id===id);
+  if(p.placed){removeFromGrid(id);}else{placeOnGrid(id);}
+}
+
+function placeOnGrid(id){
+  const p=people.find(x=>x.id===id);
+  removeFromGrid(id);
+  const col=chargeToCol(p.charge);
+  const row=p.mood;
+  const cell=document.getElementById('cell-'+row+'-'+col);
+  const chip=createChip(p);
+  cell.appendChild(chip);
+  p.placed=true;
+  updatePlaceBtn(id,true);
+}
+
+function createChip(p){
+  const chip=document.createElement('div');
+  chip.className='chip-batt';
+  chip.setAttribute('data-pid',p.id);
+  chip.setAttribute('draggable','true');
+  chip.innerHTML=battSVG(p.charge,battColor(p.charge),38,16)+
+    '<div class="chip-label">'+p.name+'</div>'+
+    '<div class="chip-pct">'+p.charge+'%</div>';
+  addChipDragEvents(chip);
+  return chip;
+}
+
+function addChipDragEvents(chip){
+  chip.ondragstart=function(e){
+    e.dataTransfer.setData('text/plain',chip.getAttribute('data-pid'));
+    chip.classList.add('dragging');
+  };
+  chip.ondragend=function(){chip.classList.remove('dragging');};
+}
+
+function removeFromGrid(id){
+  const chip=document.querySelector('.chip-batt[data-pid="'+id+'"]');
+  if(chip)chip.remove();
+  const p=people.find(x=>x.id===id);
+  p.placed=false;
+  updatePlaceBtn(id,false);
+}
+
+function updatePlaceBtn(id,placed){
+  const btn=document.getElementById('pbtn-'+id);
+  if(btn){
+    btn.textContent=placed?'✓ Placé — retirer':'📌 Placer sur le tableau';
+    btn.classList.toggle('placed',placed);
+  }
+}
+
+/* ═══════════════ DRAG & DROP GRILLE ═══════════════ */
+function initGridDragDrop(){
+  document.querySelectorAll('.plot-cell').forEach(cell=>{
+    cell.addEventListener('dragover',e=>{
+      e.preventDefault();
+      cell.classList.add('drag-over');
+    });
+    cell.addEventListener('dragleave',()=>cell.classList.remove('drag-over'));
+    cell.addEventListener('drop',e=>{
+      e.preventDefault();
+      cell.classList.remove('drag-over');
+      const pid=e.dataTransfer.getData('text/plain');
+      if(!pid)return;
+      const p=people.find(x=>x.id===pid);
+      if(!p)return;
+      // retirer l'ancien chip
+      const existing=document.querySelector('.chip-batt[data-pid="'+pid+'"]');
+      if(existing)existing.remove();
+      // extraire row/col de l'id de la cellule (cell-row-col)
+      const parts=cell.id.split('-');
+      const row=parseInt(parts[1]),col=parseInt(parts[2]);
+      // mettre à jour mood & charge selon la cellule cible
+      p.mood=row;
+      // on ne force pas la colonne charge via drag, on garde la charge actuelle mais on l'affiche dans la nouvelle cellule
+      const chip=createChip(p);
+      cell.appendChild(chip);
+      p.placed=true;
+      updatePlaceBtn(pid,true);
+      // mettre à jour les mood pills dans la carte
+      const card=document.getElementById('pcard-'+pid);
+      if(card)card.querySelectorAll('.mood-pill').forEach((b,i)=>b.classList.toggle('on',i===row));
+    });
+  });
+}
+
+/* ═══════════════ ONGLETS ═══════════════ */
+const TAB_PRESETS=[
+  {id:'success',label:'Succès',icon:'ti ti-trophy',tagClass:'tag-success',
+   iconBg:'#EAF3DE',iconColor:'#3B6D11',
+   tags:['Contrat Dupont signé','+ 12 % livraisons']},
+  {id:'client',label:'Retour client',icon:'ti ti-message-circle',tagClass:'tag-client',
+   iconBg:'#E6F1FB',iconColor:'#185FA5',
+   tags:['Livraison rapide appréciée']},
+  {id:'comms',label:'Communication',icon:'ti ti-speakerphone',tagClass:'tag-comms',
+   iconBg:'#EEEDFE',iconColor:'#534AB7',
+   tags:['Réunion direction jeu 14h','Nouveau process qualité']},
+];
+const TAB_COLORS=[
+  {bg:'#EAF3DE',color:'#3B6D11',border:'#97C459',tagCls:'tag-success'},
+  {bg:'#E6F1FB',color:'#185FA5',border:'#85B7EB',tagCls:'tag-client'},
+  {bg:'#EEEDFE',color:'#534AB7',border:'#AFA9EC',tagCls:'tag-comms'},
+  {bg:'#FAEEDA',color:'#854F0B',border:'#FAC775',tagCls:'tag-warn'},
+  {bg:'#F3E8FF',color:'#6B21A8',border:'#C084FC',tagCls:'tag-custom'},
+  {bg:'#FFE4E4',color:'#A32D2D',border:'#F87171',tagCls:'tag-warn'},
+];
+let tabs=[],activeTabId=null,tabCounter=0,selectedColor=0;
+
+function initTabs(){
+  TAB_PRESETS.forEach(preset=>{
+    tabCounter++;
+    const t={
+      id:preset.id,
+      label:preset.label,
+      icon:preset.icon,
+      colorIdx:TAB_PRESETS.indexOf(preset),
+      tags:[...preset.tags],
+    };
+    tabs.push(t);
+  });
+  activeTabId=tabs[0].id;
+  renderTabs();
+}
+
+function renderTabs(){
+  const bar=document.getElementById('tabs-bar');
+  const content=document.getElementById('tabs-content');
+  // vider (sauf le bouton +)
+  Array.from(bar.querySelectorAll('.tab-btn')).forEach(b=>b.remove());
+  content.innerHTML='';
+  tabs.forEach(t=>{
+    // bouton onglet
+    const btn=document.createElement('button');
+    btn.className='tab-btn'+(t.id===activeTabId?' active':'');
+    btn.dataset.tabId=t.id;
+    const c=TAB_COLORS[t.colorIdx]||TAB_COLORS[0];
+    btn.innerHTML=`<span style="display:inline-flex;width:18px;height:18px;border-radius:4px;background:${c.bg};color:${c.color};align-items:center;justify-content:center;font-size:10px;flex-shrink:0;"><i class="${t.icon||'ti ti-bookmark'}"></i></span>${t.label}<button class="tab-close" data-close="${t.id}" title="Supprimer l'onglet">✕</button>`;
+    btn.addEventListener('click',function(e){
+      if(e.target.closest('.tab-close'))return;
+      activeTabId=t.id;
+      renderTabs();
+    });
+    bar.insertBefore(btn,document.getElementById('tab-add-btn'));
+
+    // panneau
+    const panel=document.createElement('div');
+    panel.className='tab-panel'+(t.id===activeTabId?' active':'');
+    panel.id='panel-'+t.id;
+    const c2=TAB_COLORS[t.colorIdx]||TAB_COLORS[0];
+    panel.innerHTML=buildPanelHTML(t,c2);
+    content.appendChild(panel);
+  });
+  // close buttons
+  bar.querySelectorAll('.tab-close').forEach(btn=>{
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      removeTab(this.dataset.close);
+    });
+  });
+  // rebind add input
+  tabs.forEach(t=>bindTagInput(t.id));
+}
+
+function buildPanelHTML(t,c){
+  const tagsHTML=t.tags.map(tag=>
+    `<span class="tag" style="background:${c.bg};color:${c.color};border:0.5px solid ${c.border};">${tag}<button class="tag-del" onclick="removeTag('${t.id}',this)" title="Supprimer">✕</button></span>`
+  ).join('');
+  return `
+    <div class="tags-area" id="tags-${t.id}">${tagsHTML}</div>
+    <input class="input-inline" id="inp-${t.id}" placeholder="Ajouter… (Entrée pour valider)" />
+    <button class="add-btn" onclick="showTabInput('${t.id}')"><i class="ti ti-plus"></i> Ajouter</button>
+  `;
+}
+
+function removeTag(tabId,btn){
+  btn.closest('.tag').remove();
+  const t=tabs.find(x=>x.id===tabId);
+  if(t){
+    const area=document.getElementById('tags-'+tabId);
+    t.tags=Array.from(area.querySelectorAll('.tag')).map(el=>el.childNodes[0].textContent.trim());
+  }
+}
+
+function showTabInput(tabId){
+  const inp=document.getElementById('inp-'+tabId);
+  if(!inp)return;
+  inp.classList.add('visible');
+  inp.focus();
+}
+
+function bindTagInput(tabId){
+  const inp=document.getElementById('inp-'+tabId);
+  if(!inp)return;
+  inp.onkeydown=function(e){
+    if(e.key==='Enter'&&inp.value.trim()){
+      const t=tabs.find(x=>x.id===tabId);
+      if(!t)return;
+      const c=TAB_COLORS[t.colorIdx]||TAB_COLORS[0];
+      const area=document.getElementById('tags-'+tabId);
+      const span=document.createElement('span');
+      span.className='tag';
+      span.style.cssText=`background:${c.bg};color:${c.color};border:0.5px solid ${c.border};`;
+      span.innerHTML=inp.value.trim()+'<button class="tag-del" onclick="removeTag(\''+tabId+'\',this)" title="Supprimer">✕</button>';
+      area.appendChild(span);
+      t.tags.push(inp.value.trim());
+      inp.value='';inp.classList.remove('visible');
+    }
+    if(e.key==='Escape'){inp.value='';inp.classList.remove('visible');}
+  };
+}
+
+function removeTab(id){
+  if(tabs.length<=1){alert('Il faut conserver au moins un onglet.');return;}
+  tabs=tabs.filter(t=>t.id!==id);
+  if(activeTabId===id)activeTabId=tabs[0].id;
+  renderTabs();
+}
+
+/* ── Modal nouvel onglet ── */
+function openModal(){
+  document.getElementById('tab-modal').classList.add('open');
+  document.getElementById('modal-tab-name').value='';
+  document.getElementById('modal-tab-name').focus();
+  selectedColor=0;
+  buildColorRow();
+}
+function closeModal(){document.getElementById('tab-modal').classList.remove('open');}
+function buildColorRow(){
+  const row=document.getElementById('color-row');
+  row.innerHTML='';
+  TAB_COLORS.forEach((c,i)=>{
+    const dot=document.createElement('div');
+    dot.className='color-dot'+(i===selectedColor?' sel':'');
+    dot.style.background=c.bg;
+    dot.style.borderColor=i===selectedColor?c.color:'transparent';
+    dot.style.outline=i===selectedColor?`2px solid ${c.color}`:'none';
+    dot.title='Couleur '+i;
+    dot.onclick=()=>{selectedColor=i;buildColorRow();};
+    row.appendChild(dot);
+  });
+}
+function confirmNewTab(){
+  const name=document.getElementById('modal-tab-name').value.trim();
+  if(!name)return;
+  tabCounter++;
+  const id='tab-'+tabCounter;
+  tabs.push({id,label:name,icon:'ti ti-bookmark',colorIdx:selectedColor,tags:[]});
+  activeTabId=id;
+  closeModal();
+  renderTabs();
+}
+document.getElementById('tab-add-btn').onclick=openModal;
+document.getElementById('tab-modal').onclick=function(e){if(e.target===this)closeModal();};
+document.getElementById('modal-tab-name').addEventListener('keydown',e=>{if(e.key==='Enter')confirmNewTab();if(e.key==='Escape')closeModal();});
+
+/* ═══════════════ ROTATION ═══════════════ */
+function renderTeam(){
+  const list=document.getElementById('team-list');
+  list.innerHTML='';
+  members.forEach((m,i)=>{
+    const offset=(i-animIdx+members.length)%members.length;
+    const badge=offset===0?'<span class="badge-anim">Animateur</span>':offset===1?'<span style="font-size:10px;color:#888780;">Prochain</span>':'';
+    const row=document.createElement('div');
+    row.className='member-row';
+    row.innerHTML=`<div class="avatar ${m.color}">${m.init}</div><span class="member-name">${m.name}</span>${badge}`;
+    list.appendChild(row);
+  });
+  document.getElementById('anim1').textContent=members[animIdx%members.length].init;
+}
+function rotateTeam(){animIdx=(animIdx+1)%members.length;renderTeam();}
+
+/* ═══════════════ POINT DU JOUR ═══════════════ */
+let actionCount=3;
+function showActionInput(){
+  const inp=document.getElementById('action-input');
+  inp.classList.add('visible');inp.focus();
+  inp.onkeydown=function(e){
+    if(e.key==='Enter'&&inp.value.trim()){
+      actionCount++;
+      const id='a'+actionCount;
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:6px;font-size:13px;color:#1a1a18;';
+      row.innerHTML=`<input type="checkbox" id="${id}"><label for="${id}" style="flex:1;">${inp.value.trim()}</label><button onclick="this.closest('div').remove()" style="background:none;border:none;cursor:pointer;font-size:12px;color:#888780;padding:0;opacity:0.5;transition:opacity 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5" title="Supprimer">✕</button>`;
+      document.getElementById('action-list').appendChild(row);
+      inp.value='';inp.classList.remove('visible');
+    }
+    if(e.key==='Escape'){inp.value='';inp.classList.remove('visible');}
+  };
+}
+
+/* ═══════════════ TIMER ═══════════════ */
+function toggleTimer(){
+  if(!running){
+    running=true;
+    document.getElementById('start-btn').classList.add('running');
+    document.getElementById('start-btn').innerHTML='<i class="ti ti-player-stop"></i> Arrêter';
+    document.getElementById('session-status').textContent='En cours…';
+    timerInterval=setInterval(tick,1000);
+  } else {
+    clearInterval(timerInterval);running=false;seconds=600;
+    document.getElementById('timer-display').textContent='10:00';
+    document.getElementById('ring').style.strokeDashoffset='150.8';
+    document.getElementById('progress').style.width='0%';
+    document.getElementById('ring').style.stroke='#534AB7';
+    document.getElementById('start-btn').classList.remove('running');
+    document.getElementById('start-btn').innerHTML='<i class="ti ti-player-play"></i> Démarrer';
+    document.getElementById('session-status').textContent='Réunion terminée ✓';
+  }
+}
+function tick(){
+  if(seconds<=0){toggleTimer();return;}
+  seconds--;
+  const m=Math.floor(seconds/60),s=seconds%60;
+  document.getElementById('timer-display').textContent=m+':'+(s<10?'0':'')+s;
+  const pct=(600-seconds)/600;
+  document.getElementById('ring').style.strokeDashoffset=150.8*(1-pct);
+  document.getElementById('progress').style.width=Math.round(pct*100)+'%';
+  if(seconds===60)document.getElementById('ring').style.stroke='#E24B4A';
+}
+
+/* ═══════════════ INIT ═══════════════ */
+document.getElementById('date-now').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+renderPeopleCards();
+renderTeam();
+initTabs();
+initGridDragDrop();
+</script>
+</body>
+</html>
